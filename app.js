@@ -47,7 +47,19 @@ function render() {
     if(['Cross Price','LTP'].includes(c)){ const n=num(v); v=n===null?'—':n.toFixed(2); }
     if(['Monthly RSI','Weekly RSI','Hourly RSI','Prev Monthly RSI'].includes(c)){ const n=num(v); v=n===null?'—':n.toFixed(2); }
     const cls=c.includes('Status')?clsStatus(v):(['Growth %','Max Growth %','Drawdown %'].includes(c)?(num(v)>0?'positive':num(v)<0?'negative':''):'');
-    return `<td class="${cls}">${esc(v)}</td>`;
+    if(c === 'Stock' && v){
+  const symbol = String(v).trim();
+  const chartUrl = `https://chartink.com/stocks/${encodeURIComponent(symbol)}.html`;
+
+  v = `<a class="stock-link"
+           href="${chartUrl}"
+           target="_blank"
+           rel="noopener noreferrer">${esc(symbol)}</a>`;
+
+  return `<td class="${cls}">${v}</td>`;
+}
+
+  return `<td class="${cls}">${esc(v)}</td>`;
   }).join('')}</tr>`).join('');
   document.getElementById('emptyState').style.display=rows.length?'none':'block';
 
