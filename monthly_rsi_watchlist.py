@@ -113,10 +113,16 @@ def candles_to_df(candles):
             columns=["timestamp", "open", "high", "low", "close", "volume", "oi"]
         )
 
+    # Upstox can return timestamps with timezone offsets. Normalize every
+    # candle timestamp to a single timezone so concatenating historical and
+    # intraday data never turns the column into object dtype (which breaks
+    # pandas .dt operations later in the scanner).
+    timestamps = pd.to_datetime([c[0] for c in candles], utc=True).tz_convert("Asia/Kolkata")
+
     rows = []
-    for c in candles:
+    for i, c in enumerate(candles):
         rows.append({
-            "timestamp": pd.to_datetime(c[0]),
+            "timestamp": timestamps[i],
             "open": float(c[1]),
             "high": float(c[2]),
             "low": float(c[3]),
@@ -126,6 +132,7 @@ def candles_to_df(candles):
         })
 
     df = pd.DataFrame(rows)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True).dt.tz_convert("Asia/Kolkata")
     return (
         df.sort_values("timestamp")
           .drop_duplicates("timestamp")
@@ -462,6 +469,9 @@ def completed_and_live_rsi(key, ltp):
         intra = fetch_intraday_hours(key)
         if not intra.empty:
             hourly = pd.concat([hourly, intra], ignore_index=True)
+            hourly["timestamp"] = pd.to_datetime(
+                hourly["timestamp"], utc=True
+            ).dt.tz_convert("Asia/Kolkata")
             hourly = (
                 hourly.sort_values("timestamp")
                 .drop_duplicates("timestamp", keep="last")
