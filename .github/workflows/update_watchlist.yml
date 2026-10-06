@@ -33,9 +33,12 @@ jobs:
           UPSTOX_TIMEOUT: '20'
         run: python monthly_rsi_watchlist.py
 
-      - name: Publish CSV to dashboard
+      - name: Verify dashboard CSV
         run: |
-          test -f data/watchlist.csv || cp data/watchlist.csv data/watchlist.csv
+          test -f data/watchlist.csv
+          echo "Dashboard CSV generated:"
+          wc -l data/watchlist.csv
+          head -n 3 data/watchlist.csv
 
       - name: Commit updated data
         run: |

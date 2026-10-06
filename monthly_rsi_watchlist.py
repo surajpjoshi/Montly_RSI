@@ -185,13 +185,25 @@ def fetch_ltp(instrument_keys):
     # Conservative batch size.
     for i in range(0, len(instrument_keys), 100):
         batch = instrument_keys[i:i + 100]
-        params = [("instrument_key", x) for x in batch]
+        # Upstox V3 expects a comma-separated instrument_key parameter.
+        params = {"instrument_key": ",".join(batch)}
         data = api_get("/market-quote/ltp", params=params)
 
-        # Upstox response is keyed by instrument key.
-        for key, value in data.items():
-            if isinstance(value, dict):
-                result[key] = value.get("last_price", value.get("ltp"))
+        # V3 response keys are display keys such as NSE_EQ:SYMBOL,
+        # while instrument_token contains the original NSE_EQ|ISIN key.
+        # Map by instrument_token so the scanner can reliably find each LTP.
+        for display_key, value in data.items():
+            if not isinstance(value, dict):
+                continue
+
+            last_price = value.get("last_price", value.get("ltp"))
+            instrument_token = value.get("instrument_token")
+
+            if instrument_token and last_price is not None:
+                result[str(instrument_token)] = last_price
+
+            if last_price is not None:
+                result[str(display_key)] = last_price
 
         time.sleep(0.05)
 
@@ -669,7 +681,19 @@ def build_watchlist(master, cross_history):
     save_csv(touch_history, TOUCH_HISTORY_FILE)
 
     result = pd.DataFrame(rows)
+
+    # GitHub Pages reads this CSV directly. Always write it, including an
+    # empty file with the correct headers when no rows can be built.
     if result.empty:
+        result = pd.DataFrame(columns=[
+            "Stock", "Company Name", "Cross Date", "Cross Price", "LTP",
+            "Growth %", "Max Growth %", "Drawdown %", "Monthly RSI",
+            "Weekly RSI", "Hourly RSI", "Prev Monthly RSI",
+            "Days Since Cross", "H-RSI Touch ≤30 Count", "H-RSI Touch Dates",
+            "M-RSI Status", "W-RSI Status", "H-RSI Status",
+            "ISIN Code", "Instrument Key"
+        ])
+        save_csv(result, DATA_DIR / "watchlist.csv")
         return result
 
     # Useful default sort: strongest post-cross performance first.
@@ -677,6 +701,9 @@ def build_watchlist(master, cross_history):
         ["Growth %", "Monthly RSI"],
         ascending=[False, False]
     ).reset_index(drop=True)
+
+    # Publish the exact table consumed by the GitHub Pages dashboard.
+    save_csv(result, DATA_DIR / "watchlist.csv")
 
     return result
 
@@ -737,13 +764,21 @@ def main():
     )
 
     if watchlist.empty:
-        print("No Monthly RSI >70 cross found yet.")
+        print("No complete watchlist rows generated.")
         write_excel(
             pd.DataFrame(),
             cross_history,
             touch_history
         )
-        append_run_log("SUCCESS", "No Monthly RSI >70 cross found.")
+        save_csv(pd.DataFrame(columns=[
+            "Stock", "Company Name", "Cross Date", "Cross Price", "LTP",
+            "Growth %", "Max Growth %", "Drawdown %", "Monthly RSI",
+            "Weekly RSI", "Hourly RSI", "Prev Monthly RSI",
+            "Days Since Cross", "H-RSI Touch ≤30 Count", "H-RSI Touch Dates",
+            "M-RSI Status", "W-RSI Status", "H-RSI Status",
+            "ISIN Code", "Instrument Key"
+        ]), DATA_DIR / "watchlist.csv")
+        append_run_log("SUCCESS", "No complete watchlist rows generated.")
         return
 
     write_excel(watchlist, cross_history, touch_history)
