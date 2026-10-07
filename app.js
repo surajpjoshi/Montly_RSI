@@ -1,6 +1,6 @@
 const DATA_URL = 'data/watchlist.csv';
 const columns = [
-  'Stock','Company Name','Cross Date','Cross Price','LTP','Growth %','Max Growth %','Drawdown %',
+  'Stock','Company Name','Entry Type','Cross Date','Cross Price','LTP','Growth %','Max Growth %','Drawdown %',
   'Monthly RSI','Weekly RSI','Hourly RSI','Prev Monthly RSI','Days Since Cross',
   'H-RSI Touch ≤30 Count','H-RSI Touch Dates','M-RSI Status','W-RSI Status','H-RSI Status','ISIN Code','Instrument Key'
 ];
